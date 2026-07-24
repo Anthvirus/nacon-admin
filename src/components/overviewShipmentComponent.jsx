@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import NaconLogo from "../assets/Nacon.jpg";
 
 export default function OverviewShipmentComponent() {
   const [shipments, setShipments] = useState([]);
-  const [filteredShipments, setFilteredShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -13,10 +12,9 @@ export default function OverviewShipmentComponent() {
     async function fetchShipments() {
       try {
         const res = await axios.get(
-          "https://nacon-v0.onrender.com/api/shipments"
+          "https://nacon-v0.onrender.com/api/shipments",
         );
         setShipments(res.data);
-        setFilteredShipments(res.data);
         setLoading(false);
       } catch (err) {
         console.error("Error fetching shipments:", err);
@@ -28,13 +26,25 @@ export default function OverviewShipmentComponent() {
     fetchShipments();
   }, []);
 
-  useEffect(() => {
-    const term = searchTerm.toLowerCase();
-    const filtered = shipments.filter((shipment) =>
-      shipment.containerNo?.some((no) => no.toLowerCase().includes(term))
-    );
-    setFilteredShipments(filtered);
-  }, [searchTerm, shipments]);
+  const filteredShipments = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    if (!term) return shipments;
+
+    return shipments.filter((shipment) => {
+      const containers = Array.isArray(shipment.containerNo)
+        ? shipment.containerNo
+        : shipment.containerNo
+          ? [shipment.containerNo]
+          : [];
+
+      return containers.some((no) =>
+        String(no ?? "")
+          .toLowerCase()
+          .includes(term),
+      );
+    });
+  }, [shipments, searchTerm]);
 
   return (
     <div className="py-6 h-full rounded-xl flex flex-col">
@@ -78,9 +88,13 @@ export default function OverviewShipmentComponent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--Primary)]">
-              {filteredShipments.map((shipment) => (
+              {filteredShipments.map((shipment, index) => (
                 <tr
-                  key={shipment.containerNo}
+                  key={
+                    shipment.id ??
+                    shipment._id ??
+                    `${Array.isArray(shipment.containerNo) ? shipment.containerNo.join("-") : shipment.containerNo || "no-container"}-${index}`
+                  }
                   className="grid grid-cols-8 min-w-full items-center text-center text-[var(--Primary)] text-md font-bold hover:bg-[var(--Secondary)] hover:opacity-90 hover:text-[var(--Accent)] transition duration-75"
                 >
                   <td className="px-4 py-3 underline align-top">
